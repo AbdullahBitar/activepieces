@@ -10,23 +10,22 @@ export function addTrigger(
     flowVersion: FlowVersion,
     request: UpdateTriggerRequest,
 ): FlowVersion {
-    const clonedVersion: FlowVersion = JSON.parse(JSON.stringify(flowVersion))
     const trigger: Trigger = {
         type: request.type,
         settings: request.settings,
         displayName: request.displayName,
-        name: clonedVersion.trigger.name,
+        name: flowVersion.trigger.name,
         valid: false,
-        nextAction: clonedVersion.trigger.nextAction,
+        nextAction: flowVersion.trigger.nextAction,
     }
     trigger.valid = (request.valid ?? true) && triggerSchemaValidation.Check(trigger)
-    clonedVersion.trigger = trigger
+    flowVersion.trigger = trigger
 
-    return clonedVersion
+    return flowVersion
 }
 
 export function updateFlowTrigger(flowVersion: FlowVersion, request: UpdateTriggerRequest): FlowVersion {
-    let updatedFlowVersion = addTrigger(flowVersion, request)
+    let updatedFlowVersion: FlowVersion = addTrigger(flowVersion, request)
 
     updatedFlowVersion = transferFlow(updatedFlowVersion, (step) =>
         upgradePiece(step, request.name),

@@ -18,7 +18,6 @@ import { Trigger, TriggerType } from './triggers/trigger'
 import { TypeCompiler } from '@sinclair/typebox/compiler'
 import { FlowVersion } from './flow-version'
 import { ActivepiecesError, ErrorCode } from '../common/activepieces-error'
-import semver from 'semver'
 import { applyFunctionToValuesSync, isString } from '../common'
 import { FlowBuilder } from './flow-builder/flow-builder'
 
@@ -311,44 +310,6 @@ const getStepFromSubFlow = ({
     })
 
     return subFlowSteps.find((step) => step.name === stepName)
-}
-
-function updateAction(
-    flowVersion: FlowVersion,
-    request: UpdateActionRequest,
-): FlowVersion {
-    return transferFlow(flowVersion, (parentStep) => {
-        if (parentStep.nextAction && parentStep.nextAction.name === request.name) {
-            const actions = extractActions(parentStep.nextAction)
-            parentStep.nextAction = createAction(request, actions)
-        }
-        if (parentStep.type === ActionType.BRANCH) {
-            if (
-                parentStep.onFailureAction &&
-        parentStep.onFailureAction.name === request.name
-            ) {
-                const actions = extractActions(parentStep.onFailureAction)
-                parentStep.onFailureAction = createAction(request, actions)
-            }
-            if (
-                parentStep.onSuccessAction &&
-        parentStep.onSuccessAction.name === request.name
-            ) {
-                const actions = extractActions(parentStep.onSuccessAction)
-                parentStep.onSuccessAction = createAction(request, actions)
-            }
-        }
-        if (parentStep.type === ActionType.LOOP_ON_ITEMS) {
-            if (
-                parentStep.firstLoopAction &&
-        parentStep.firstLoopAction.name === request.name
-            ) {
-                const actions = extractActions(parentStep.firstLoopAction)
-                parentStep.firstLoopAction = createAction(request, actions)
-            }
-        }
-        return parentStep
-    })
 }
 
 function extractActions(step: Trigger | Action): {
@@ -672,56 +633,6 @@ function removeAnySubsequentAction(action: Action): Action {
     return clonedAction
 }
 
-function upgradePiece(step: Step, stepName: string): Step {
-    if (step.name !== stepName) {
-        return step
-    }
-    const clonedStep: Step = JSON.parse(JSON.stringify(step))
-    switch (step.type) {
-        case ActionType.PIECE:
-        case TriggerType.PIECE: {
-            const { pieceVersion, pieceName } = step.settings
-            if (isLegacyApp({ pieceName, pieceVersion })) {
-                return step
-            }
-            if (pieceVersion.startsWith('^') || pieceVersion.startsWith('~')) {
-                return step
-            }
-            if (semver.valid(pieceVersion) && semver.lt(pieceVersion, '1.0.0')) {
-                clonedStep.settings.pieceVersion = `~${pieceVersion}`
-            }
-            else {
-                clonedStep.settings.pieceVersion = `^${pieceVersion}`
-            }
-            break
-        }
-        default:
-            break
-    }
-    return clonedStep
-}
-
-// TODO Remove this in 2024, these pieces didn't follow the standarad versioning where the minor version has to be increased when there is breaking change.
-function isLegacyApp({ pieceName, pieceVersion }: { pieceName: string, pieceVersion: string }) {
-    let newVersion = pieceVersion
-    if (newVersion.startsWith('^') || newVersion.startsWith('~')) {
-        newVersion = newVersion.substring(1)
-    }
-    if (
-        pieceName === '@activepieces/piece-google-sheets' &&
-    semver.lt(newVersion, '0.3.0')
-    ) {
-        return true
-    }
-    if (
-        pieceName === '@activepieces/piece-gmail' &&
-    semver.lt(newVersion, '0.3.0')
-    ) {
-        return true
-    }
-    return false
-}
-
 function duplicateStep(stepName: string, flowVersionWithArtifacts: FlowVersion): FlowVersion {
     const clonedStep = JSON.parse(JSON.stringify(flowHelper.getStep(flowVersionWithArtifacts, stepName)))
     clonedStep.nextAction = undefined
@@ -894,17 +805,11 @@ export const flowHelper = {
                 clonedVersion = flowBuilder.deleteAction(operation.request).build()
                 break
             case FlowOperationType.ADD_ACTION: {
-                clonedVersion = transferFlow(
-                    addAction(clonedVersion, operation.request),
-                    (step) => upgradePiece(step, operation.request.action.name),
-                )
+                clonedVersion = flowBuilder.addAction(operation.request).build()
                 break
             }
             case FlowOperationType.UPDATE_ACTION:
-                clonedVersion = transferFlow(
-                    updateAction(clonedVersion, operation.request),
-                    (step) => upgradePiece(step, operation.request.name),
-                )
+                clonedVersion = flowBuilder.updateAction(operation.request).build()
                 break
             case FlowOperationType.UPDATE_TRIGGER:
                 clonedVersion = flowBuilder.updateTrigger(operation.request).build()

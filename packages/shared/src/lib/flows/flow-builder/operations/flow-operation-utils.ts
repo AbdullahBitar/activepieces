@@ -1,10 +1,14 @@
 import semver from "semver"
-import { Action, ActionType } from "../../actions/action"
+import { Action, ActionType, SingleActionSchema } from "../../actions/action"
 import { FlowVersion } from "../../flow-version"
 import { Trigger, TriggerType } from "../../triggers/trigger"
-import { DeleteActionRequest } from "../../flow-operations"
+import { AddActionRequest, DeleteActionRequest, StepLocationRelativeToParent, UpdateActionRequest } from "../../flow-operations"
+import { TypeCompiler } from "@sinclair/typebox/compiler"
+import { ActivepiecesError, ErrorCode } from "../../../common/activepieces-error"
 
 type Step = Action | Trigger
+
+const actionSchemaValidator = TypeCompiler.Compile(SingleActionSchema)
 
 export function transferFlow<T extends Step>(
     flowVersion: FlowVersion,
@@ -95,13 +99,13 @@ function isLegacyApp({ pieceName, pieceVersion }: { pieceName: string, pieceVers
     }
     if (
         pieceName === '@activepieces/piece-google-sheets' &&
-    semver.lt(newVersion, '0.3.0')
+        semver.lt(newVersion, '0.3.0')
     ) {
         return true
     }
     if (
         pieceName === '@activepieces/piece-gmail' &&
-    semver.lt(newVersion, '0.3.0')
+        semver.lt(newVersion, '0.3.0')
     ) {
         return true
     }
@@ -121,14 +125,14 @@ export function deleteAction(
             case ActionType.BRANCH: {
                 if (
                     parentStep.onFailureAction &&
-          parentStep.onFailureAction.name === request.name
+                    parentStep.onFailureAction.name === request.name
                 ) {
                     const stepToUpdate: Action = parentStep.onFailureAction
                     parentStep.onFailureAction = stepToUpdate.nextAction
                 }
                 if (
                     parentStep.onSuccessAction &&
-          parentStep.onSuccessAction.name === request.name
+                    parentStep.onSuccessAction.name === request.name
                 ) {
                     const stepToUpdate: Action = parentStep.onSuccessAction
                     parentStep.onSuccessAction = stepToUpdate.nextAction
@@ -138,7 +142,7 @@ export function deleteAction(
             case ActionType.LOOP_ON_ITEMS: {
                 if (
                     parentStep.firstLoopAction &&
-          parentStep.firstLoopAction.name === request.name
+                    parentStep.firstLoopAction.name === request.name
                 ) {
                     const stepToUpdate: Action = parentStep.firstLoopAction
                     parentStep.firstLoopAction = stepToUpdate.nextAction
@@ -147,6 +151,152 @@ export function deleteAction(
             }
             default:
                 break
+        }
+        return parentStep
+    })
+}
+
+export function createAction(
+    request: UpdateActionRequest,
+    {
+        nextAction,
+        onFailureAction,
+        onSuccessAction,
+        firstLoopAction,
+    }: {
+        nextAction?: Action
+        firstLoopAction?: Action
+        onSuccessAction?: Action
+        onFailureAction?: Action
+    },
+): Action {
+    const baseProperties = {
+        displayName: request.displayName,
+        name: request.name,
+        valid: false,
+        nextAction,
+    }
+    let action: Action
+    switch (request.type) {
+        case ActionType.BRANCH:
+            action = {
+                ...baseProperties,
+                onFailureAction,
+                onSuccessAction,
+                type: ActionType.BRANCH,
+                settings: request.settings,
+            }
+            break
+        case ActionType.LOOP_ON_ITEMS:
+            action = {
+                ...baseProperties,
+                firstLoopAction,
+                type: ActionType.LOOP_ON_ITEMS,
+                settings: request.settings,
+            }
+            break
+        case ActionType.PIECE:
+            action = {
+                ...baseProperties,
+                type: ActionType.PIECE,
+                settings: request.settings,
+            }
+            break
+        case ActionType.CODE:
+            action = {
+                ...baseProperties,
+                type: ActionType.CODE,
+                settings: request.settings,
+            }
+            break
+    }
+    action.valid = (request.valid ?? true) && actionSchemaValidator.Check(action)
+    return action
+}
+
+export function addAction(
+    flowVersion: FlowVersion,
+    request: AddActionRequest,
+): FlowVersion {
+    return transferFlow(flowVersion, (parentStep: Step) => {
+
+        if (parentStep.name !== request.parentStep) {
+            return parentStep
+        }
+        if (
+            parentStep.type === ActionType.LOOP_ON_ITEMS &&
+            request.stepLocationRelativeToParent
+        ) {
+            if (
+                request.stepLocationRelativeToParent ===
+                StepLocationRelativeToParent.INSIDE_LOOP
+            ) {
+                parentStep.firstLoopAction = createAction(request.action, {
+                    nextAction: parentStep.firstLoopAction,
+                })
+            }
+            else if (
+                request.stepLocationRelativeToParent ===
+                StepLocationRelativeToParent.AFTER
+            ) {
+
+                parentStep.nextAction = createAction(request.action, {
+                    nextAction: parentStep.nextAction,
+
+                })
+            }
+            else {
+                throw new ActivepiecesError(
+                    {
+                        code: ErrorCode.FLOW_OPERATION_INVALID,
+                        params: {},
+                    },
+                    `Loop step parent ${request.stepLocationRelativeToParent} not found`,
+                )
+            }
+        }
+        else if (
+            parentStep.type === ActionType.BRANCH &&
+            request.stepLocationRelativeToParent
+        ) {
+            if (
+                request.stepLocationRelativeToParent ===
+                StepLocationRelativeToParent.INSIDE_TRUE_BRANCH
+            ) {
+                parentStep.onSuccessAction = createAction(request.action, {
+                    nextAction: parentStep.onSuccessAction,
+                })
+            }
+            else if (
+                request.stepLocationRelativeToParent ===
+                StepLocationRelativeToParent.INSIDE_FALSE_BRANCH
+            ) {
+                parentStep.onFailureAction = createAction(request.action, {
+                    nextAction: parentStep.onFailureAction,
+                })
+            }
+            else if (
+                request.stepLocationRelativeToParent ===
+                StepLocationRelativeToParent.AFTER
+            ) {
+                parentStep.nextAction = createAction(request.action, {
+                    nextAction: parentStep.nextAction,
+                })
+            }
+            else {
+                throw new ActivepiecesError(
+                    {
+                        code: ErrorCode.FLOW_OPERATION_INVALID,
+                        params: {},
+                    },
+                    `Branch step parernt ${request.stepLocationRelativeToParent} not found`,
+                )
+            }
+        }
+        else {
+            parentStep.nextAction = createAction(request.action, {
+                nextAction: parentStep.nextAction,
+            })
         }
         return parentStep
     })
