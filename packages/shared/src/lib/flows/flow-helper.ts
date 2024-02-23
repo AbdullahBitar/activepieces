@@ -891,7 +891,7 @@ export const flowHelper = {
                 clonedVersion = flowBuilder.changeName(operation.request.displayName).build()
                 break
             case FlowOperationType.DELETE_ACTION:
-                clonedVersion = deleteAction(clonedVersion, operation.request)
+                clonedVersion = flowBuilder.deleteAction(operation.request).build()
                 break
             case FlowOperationType.ADD_ACTION: {
                 clonedVersion = transferFlow(

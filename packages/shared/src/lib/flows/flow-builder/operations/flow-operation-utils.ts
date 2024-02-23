@@ -2,6 +2,7 @@ import semver from "semver"
 import { Action, ActionType } from "../../actions/action"
 import { FlowVersion } from "../../flow-version"
 import { Trigger, TriggerType } from "../../triggers/trigger"
+import { DeleteActionRequest } from "../../flow-operations"
 
 type Step = Action | Trigger
 
@@ -105,4 +106,48 @@ function isLegacyApp({ pieceName, pieceVersion }: { pieceName: string, pieceVers
         return true
     }
     return false
+}
+
+export function deleteAction(
+    flowVersion: FlowVersion,
+    request: DeleteActionRequest,
+): FlowVersion {
+    return transferFlow(flowVersion, (parentStep) => {
+        if (parentStep.nextAction && parentStep.nextAction.name === request.name) {
+            const stepToUpdate: Action = parentStep.nextAction
+            parentStep.nextAction = stepToUpdate.nextAction
+        }
+        switch (parentStep.type) {
+            case ActionType.BRANCH: {
+                if (
+                    parentStep.onFailureAction &&
+          parentStep.onFailureAction.name === request.name
+                ) {
+                    const stepToUpdate: Action = parentStep.onFailureAction
+                    parentStep.onFailureAction = stepToUpdate.nextAction
+                }
+                if (
+                    parentStep.onSuccessAction &&
+          parentStep.onSuccessAction.name === request.name
+                ) {
+                    const stepToUpdate: Action = parentStep.onSuccessAction
+                    parentStep.onSuccessAction = stepToUpdate.nextAction
+                }
+                break
+            }
+            case ActionType.LOOP_ON_ITEMS: {
+                if (
+                    parentStep.firstLoopAction &&
+          parentStep.firstLoopAction.name === request.name
+                ) {
+                    const stepToUpdate: Action = parentStep.firstLoopAction
+                    parentStep.firstLoopAction = stepToUpdate.nextAction
+                }
+                break
+            }
+            default:
+                break
+        }
+        return parentStep
+    })
 }

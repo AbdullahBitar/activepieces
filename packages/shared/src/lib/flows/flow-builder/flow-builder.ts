@@ -1,5 +1,6 @@
-import { UpdateTriggerRequest } from '../flow-operations'
+import { DeleteActionRequest, UpdateTriggerRequest } from '../flow-operations'
 import { FlowVersion, FlowVersionState } from '../flow-version'
+import { deleteAction } from './operations/flow-operation-utils'
 import { updateFlowTrigger } from './operations/update-trigger'
 
 export class FlowBuilder {
@@ -19,6 +20,10 @@ export class FlowBuilder {
 
     updateTrigger(request: UpdateTriggerRequest): FlowBuilder {
         return new FlowBuilder(updateFlowTrigger(this.flow, request))
+    }
+
+    deleteAction(request: DeleteActionRequest): FlowBuilder {
+        return new FlowBuilder(deleteAction(this.flow, request))
     }
 
     build(): FlowVersion {
