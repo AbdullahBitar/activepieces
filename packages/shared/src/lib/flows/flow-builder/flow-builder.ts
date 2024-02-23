@@ -1,4 +1,6 @@
+import { UpdateTriggerRequest } from '../flow-operations'
 import { FlowVersion, FlowVersionState } from '../flow-version'
+import { updateFlowTrigger } from './operations/update-trigger'
 
 export class FlowBuilder {
     private flow: FlowVersion
@@ -13,6 +15,10 @@ export class FlowBuilder {
 
     lockFlow(): FlowBuilder {
         return new FlowBuilder({ ...this.flow, state: FlowVersionState.LOCKED })
+    }
+
+    updateTrigger(request: UpdateTriggerRequest): FlowBuilder {
+        return new FlowBuilder(updateFlowTrigger(this.flow, request))
     }
 
     build(): FlowVersion {

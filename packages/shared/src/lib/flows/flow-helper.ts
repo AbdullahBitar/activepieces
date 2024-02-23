@@ -4,7 +4,6 @@ import {
     FlowOperationType,
     FlowOperationRequest,
     UpdateActionRequest,
-    UpdateTriggerRequest,
     StepLocationRelativeToParent,
     MoveActionRequest,
 } from './flow-operations'
@@ -17,7 +16,7 @@ import {
 } from './actions/action'
 import { Trigger, TriggerType } from './triggers/trigger'
 import { TypeCompiler } from '@sinclair/typebox/compiler'
-import { FlowVersion, FlowVersionState } from './flow-version'
+import { FlowVersion } from './flow-version'
 import { ActivepiecesError, ErrorCode } from '../common/activepieces-error'
 import semver from 'semver'
 import { applyFunctionToValuesSync, isString } from '../common'
@@ -35,7 +34,6 @@ type GetStepFromSubFlow = {
 }
 
 const actionSchemaValidator = TypeCompiler.Compile(SingleActionSchema)
-const triggerSchemaValidation = TypeCompiler.Compile(Trigger)
 
 function isValid(flowVersion: FlowVersion) {
     let valid = true
@@ -578,45 +576,6 @@ function isChildOf(parent: LoopOnItemsAction | BranchAction, childStepName: stri
         }
     }
 }
-function createTrigger(
-    name: string,
-    request: UpdateTriggerRequest,
-    nextAction: Action | undefined,
-): Trigger {
-    const baseProperties = {
-        displayName: request.displayName,
-        name,
-        valid: false,
-        nextAction,
-    }
-    let trigger: Trigger
-    switch (request.type) {
-        case TriggerType.EMPTY:
-            trigger = {
-                ...baseProperties,
-                type: TriggerType.EMPTY,
-                settings: request.settings,
-            }
-            break
-        case TriggerType.PIECE:
-            trigger = {
-                ...baseProperties,
-                type: TriggerType.PIECE,
-                settings: request.settings,
-            }
-            break
-        case TriggerType.WEBHOOK:
-            trigger = {
-                ...baseProperties,
-                type: TriggerType.WEBHOOK,
-                settings: request.settings,
-            }
-            break
-    }
-    trigger.valid =
-    (request.valid ?? true) && triggerSchemaValidation.Check(trigger)
-    return trigger
-}
 
 export function getImportOperations(
     step: Action | Trigger | undefined,
@@ -948,14 +907,7 @@ export const flowHelper = {
                 )
                 break
             case FlowOperationType.UPDATE_TRIGGER:
-                clonedVersion.trigger = createTrigger(
-                    clonedVersion.trigger.name,
-                    operation.request,
-                    clonedVersion.trigger.nextAction,
-                )
-                clonedVersion = transferFlow(clonedVersion, (step) =>
-                    upgradePiece(step, operation.request.name),
-                )
+                clonedVersion = flowBuilder.updateTrigger(operation.request).build()
                 break
             case FlowOperationType.DUPLICATE_ACTION: {
                 clonedVersion = duplicateStep(operation.request.stepName, clonedVersion)
