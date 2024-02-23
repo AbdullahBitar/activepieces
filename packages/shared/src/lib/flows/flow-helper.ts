@@ -1,9 +1,6 @@
 import {
-    AddActionRequest,
-    DeleteActionRequest,
     FlowOperationType,
     FlowOperationRequest,
-    UpdateActionRequest,
     StepLocationRelativeToParent,
     MoveActionRequest,
 } from './flow-operations'
@@ -12,14 +9,14 @@ import {
     ActionType,
     BranchAction,
     LoopOnItemsAction,
-    SingleActionSchema,
 } from './actions/action'
 import { Trigger, TriggerType } from './triggers/trigger'
-import { TypeCompiler } from '@sinclair/typebox/compiler'
 import { FlowVersion } from './flow-version'
 import { ActivepiecesError, ErrorCode } from '../common/activepieces-error'
 import { applyFunctionToValuesSync, isString } from '../common'
 import { FlowBuilder } from './flow-builder/flow-builder'
+import { addAction, deleteAction } from './flow-builder/operations/flow-operation-utils'
+import { transferStep } from './flow-builder/operations/flow-operation-utils'
 
 type Step = Action | Trigger
 
@@ -31,8 +28,6 @@ type GetStepFromSubFlow = {
     subFlowStartStep: Step
     stepName: string
 }
-
-const actionSchemaValidator = TypeCompiler.Compile(SingleActionSchema)
 
 function isValid(flowVersion: FlowVersion) {
     let valid = true
@@ -50,50 +45,6 @@ function isAction(type: ActionType | TriggerType | undefined): boolean {
 
 function isTrigger(type: ActionType | TriggerType | undefined): boolean {
     return Object.entries(TriggerType).some(([, value]) => value === type)
-}
-
-function deleteAction(
-    flowVersion: FlowVersion,
-    request: DeleteActionRequest,
-): FlowVersion {
-    return transferFlow(flowVersion, (parentStep) => {
-        if (parentStep.nextAction && parentStep.nextAction.name === request.name) {
-            const stepToUpdate: Action = parentStep.nextAction
-            parentStep.nextAction = stepToUpdate.nextAction
-        }
-        switch (parentStep.type) {
-            case ActionType.BRANCH: {
-                if (
-                    parentStep.onFailureAction &&
-          parentStep.onFailureAction.name === request.name
-                ) {
-                    const stepToUpdate: Action = parentStep.onFailureAction
-                    parentStep.onFailureAction = stepToUpdate.nextAction
-                }
-                if (
-                    parentStep.onSuccessAction &&
-          parentStep.onSuccessAction.name === request.name
-                ) {
-                    const stepToUpdate: Action = parentStep.onSuccessAction
-                    parentStep.onSuccessAction = stepToUpdate.nextAction
-                }
-                break
-            }
-            case ActionType.LOOP_ON_ITEMS: {
-                if (
-                    parentStep.firstLoopAction &&
-          parentStep.firstLoopAction.name === request.name
-                ) {
-                    const stepToUpdate: Action = parentStep.firstLoopAction
-                    parentStep.firstLoopAction = stepToUpdate.nextAction
-                }
-                break
-            }
-            default:
-                break
-        }
-        return parentStep
-    })
 }
 
 function getUsedPieces(trigger: Trigger): string[] {
@@ -165,46 +116,6 @@ async function transferStepAsync<T extends Step>(
     return updatedStep
 }
 
-function transferStep<T extends Step>(
-    step: Step,
-    transferFunction: (step: T) => T,
-): Step {
-    const updatedStep = transferFunction(step as T)
-    if (updatedStep.type === ActionType.BRANCH) {
-        const { onSuccessAction, onFailureAction } = updatedStep
-        if (onSuccessAction) {
-            updatedStep.onSuccessAction = transferStep(
-                onSuccessAction,
-                transferFunction,
-            ) as Action
-        }
-        if (onFailureAction) {
-            updatedStep.onFailureAction = transferStep(
-                onFailureAction,
-                transferFunction,
-            ) as Action
-        }
-    }
-    else if (updatedStep.type === ActionType.LOOP_ON_ITEMS) {
-        const { firstLoopAction } = updatedStep
-        if (firstLoopAction) {
-            updatedStep.firstLoopAction = transferStep(
-                firstLoopAction,
-                transferFunction,
-            ) as Action
-        }
-    }
-
-    if (updatedStep.nextAction) {
-        updatedStep.nextAction = transferStep(
-            updatedStep.nextAction,
-            transferFunction,
-        ) as Action
-    }
-
-    return updatedStep
-}
-
 async function transferFlowAsync<T extends Step>(
     flowVersion: FlowVersion,
     transferFunction: (step: T) => Promise<T>,
@@ -217,17 +128,6 @@ async function transferFlowAsync<T extends Step>(
     return clonedFlow
 }
 
-function transferFlow<T extends Step>(
-    flowVersion: FlowVersion,
-    transferFunction: (step: T) => T,
-): FlowVersion {
-    const clonedFlow = JSON.parse(JSON.stringify(flowVersion))
-    clonedFlow.trigger = transferStep(
-        clonedFlow.trigger,
-        transferFunction,
-    ) as Trigger
-    return clonedFlow
-}
 function getAllSteps(trigger: Trigger): (Action | Trigger)[] {
     return traverseInternal(trigger)
 }
@@ -312,22 +212,6 @@ const getStepFromSubFlow = ({
     return subFlowSteps.find((step) => step.name === stepName)
 }
 
-function extractActions(step: Trigger | Action): {
-    nextAction?: Action
-    onSuccessAction?: Action
-    onFailureAction?: Action
-    firstLoopAction?: Action
-} {
-    const nextAction = step.nextAction
-    const onSuccessAction =
-    step.type === ActionType.BRANCH ? step.onSuccessAction : undefined
-    const onFailureAction =
-    step.type === ActionType.BRANCH ? step.onFailureAction : undefined
-    const firstLoopAction =
-    step.type === ActionType.LOOP_ON_ITEMS ? step.firstLoopAction : undefined
-    return { nextAction, onSuccessAction, onFailureAction, firstLoopAction }
-}
-
 function moveAction(
     flowVersion: FlowVersion,
     request: MoveActionRequest,
@@ -376,153 +260,6 @@ function moveAction(
         flowVersion = flowHelper.apply(flowVersion, operation)
     })
     return flowVersion
-}
-
-
-function addAction(
-    flowVersion: FlowVersion,
-    request: AddActionRequest,
-): FlowVersion {
-    return transferFlow(flowVersion, (parentStep: Step) => {
-
-        if (parentStep.name !== request.parentStep) {
-            return parentStep
-        }
-        if (
-            parentStep.type === ActionType.LOOP_ON_ITEMS &&
-      request.stepLocationRelativeToParent
-        ) {
-            if (
-                request.stepLocationRelativeToParent ===
-        StepLocationRelativeToParent.INSIDE_LOOP
-            ) {
-                parentStep.firstLoopAction = createAction(request.action, {
-                    nextAction: parentStep.firstLoopAction,
-                })
-            }
-            else if (
-                request.stepLocationRelativeToParent ===
-        StepLocationRelativeToParent.AFTER
-            ) {
-
-                parentStep.nextAction = createAction(request.action, {
-                    nextAction: parentStep.nextAction,
-
-                })
-            }
-            else {
-                throw new ActivepiecesError(
-                    {
-                        code: ErrorCode.FLOW_OPERATION_INVALID,
-                        params: {},
-                    },
-                    `Loop step parent ${request.stepLocationRelativeToParent} not found`,
-                )
-            }
-        }
-        else if (
-            parentStep.type === ActionType.BRANCH &&
-      request.stepLocationRelativeToParent
-        ) {
-            if (
-                request.stepLocationRelativeToParent ===
-        StepLocationRelativeToParent.INSIDE_TRUE_BRANCH
-            ) {
-                parentStep.onSuccessAction = createAction(request.action, {
-                    nextAction: parentStep.onSuccessAction,
-                })
-            }
-            else if (
-                request.stepLocationRelativeToParent ===
-        StepLocationRelativeToParent.INSIDE_FALSE_BRANCH
-            ) {
-                parentStep.onFailureAction = createAction(request.action, {
-                    nextAction: parentStep.onFailureAction,
-                })
-            }
-            else if (
-                request.stepLocationRelativeToParent ===
-        StepLocationRelativeToParent.AFTER
-            ) {
-                parentStep.nextAction = createAction(request.action, {
-                    nextAction: parentStep.nextAction,
-                })
-            }
-            else {
-                throw new ActivepiecesError(
-                    {
-                        code: ErrorCode.FLOW_OPERATION_INVALID,
-                        params: {},
-                    },
-                    `Branch step parernt ${request.stepLocationRelativeToParent} not found`,
-                )
-            }
-        }
-        else {
-            parentStep.nextAction = createAction(request.action, {
-                nextAction: parentStep.nextAction,
-            })
-        }
-        return parentStep
-    })
-}
-
-function createAction(
-    request: UpdateActionRequest,
-    {
-        nextAction,
-        onFailureAction,
-        onSuccessAction,
-        firstLoopAction,
-    }: {
-        nextAction?: Action
-        firstLoopAction?: Action
-        onSuccessAction?: Action
-        onFailureAction?: Action
-    },
-): Action {
-    const baseProperties = {
-        displayName: request.displayName,
-        name: request.name,
-        valid: false,
-        nextAction,
-    }
-    let action: Action
-    switch (request.type) {
-        case ActionType.BRANCH:
-            action = {
-                ...baseProperties,
-                onFailureAction,
-                onSuccessAction,
-                type: ActionType.BRANCH,
-                settings: request.settings,
-            }
-            break
-        case ActionType.LOOP_ON_ITEMS:
-            action = {
-                ...baseProperties,
-                firstLoopAction,
-                type: ActionType.LOOP_ON_ITEMS,
-                settings: request.settings,
-            }
-            break
-        case ActionType.PIECE:
-            action = {
-                ...baseProperties,
-                type: ActionType.PIECE,
-                settings: request.settings,
-            }
-            break
-        case ActionType.CODE:
-            action = {
-                ...baseProperties,
-                type: ActionType.CODE,
-                settings: request.settings,
-            }
-            break
-    }
-    action.valid = (request.valid ?? true) && actionSchemaValidator.Check(action)
-    return action
 }
 
 function isChildOf(parent: LoopOnItemsAction | BranchAction, childStepName: string): boolean {

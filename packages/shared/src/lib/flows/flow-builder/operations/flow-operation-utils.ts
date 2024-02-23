@@ -22,7 +22,7 @@ export function transferFlow<T extends Step>(
     return clonedFlow
 }
 
-function transferStep<T extends Step>(
+export function transferStep<T extends Step>(
     step: Step,
     transferFunction: (step: T) => T,
 ): Step {
