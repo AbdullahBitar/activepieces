@@ -2,7 +2,6 @@ import {
     FlowOperationType,
     FlowOperationRequest,
     StepLocationRelativeToParent,
-    MoveActionRequest,
 } from './flow-operations'
 import {
     Action,
@@ -12,11 +11,11 @@ import {
 } from './actions/action'
 import { Trigger, TriggerType } from './triggers/trigger'
 import { FlowVersion } from './flow-version'
-import { ActivepiecesError, ErrorCode } from '../common/activepieces-error'
 import { applyFunctionToValuesSync, isString } from '../common'
 import { FlowBuilder } from './flow-builder/flow-builder'
-import { addAction, deleteAction } from './flow-builder/operations/flow-operation-utils'
+import { addAction } from './flow-builder/operations/flow-operation-utils'
 import { transferStep } from './flow-builder/operations/flow-operation-utils'
+import { getSingleStep } from './flow-builder/operations/get-step'
 
 type Step = Action | Trigger
 
@@ -210,56 +209,6 @@ const getStepFromSubFlow = ({
     })
 
     return subFlowSteps.find((step) => step.name === stepName)
-}
-
-function moveAction(
-    flowVersion: FlowVersion,
-    request: MoveActionRequest,
-): FlowVersion {
-    const steps = getAllSteps(flowVersion.trigger)
-    const sourceStep = steps.find((step) => step.name === request.name)
-    if (!sourceStep || !isAction(sourceStep.type)) {
-        throw new ActivepiecesError(
-            {
-                code: ErrorCode.FLOW_OPERATION_INVALID,
-                params: {},
-            },
-            `Source step ${request.name} not found`,
-        )
-    }
-    const destinationStep = steps.find(
-        (step) => step.name === request.newParentStep,
-    )
-    if (!destinationStep) {
-        throw new ActivepiecesError(
-            {
-                code: ErrorCode.FLOW_OPERATION_INVALID,
-                params: {},
-            },
-            `Destination step ${request.newParentStep} not found`,
-        )
-    }
-    const childOperation: FlowOperationRequest[] = []
-    const clonedSourceStep: Step = JSON.parse(JSON.stringify(sourceStep))
-    if (
-        clonedSourceStep.type === ActionType.LOOP_ON_ITEMS ||
-    clonedSourceStep.type === ActionType.BRANCH
-    ) {
-    // Don't Clone the next action for first step only
-        clonedSourceStep.nextAction = undefined
-        childOperation.push(...getImportOperations(clonedSourceStep))
-    }
-    flowVersion = deleteAction(flowVersion, { name: request.name })
-    flowVersion = addAction(flowVersion, {
-        action: sourceStep as Action,
-        parentStep: request.newParentStep,
-        stepLocationRelativeToParent: request.stepLocationRelativeToNewParent,
-    })
-
-    childOperation.forEach((operation) => {
-        flowVersion = flowHelper.apply(flowVersion, operation)
-    })
-    return flowVersion
 }
 
 function isChildOf(parent: LoopOnItemsAction | BranchAction, childStepName: string): boolean {
@@ -530,7 +479,15 @@ export const flowHelper = {
         const flowBuilder = new FlowBuilder(clonedVersion)
         switch (operation.type) {
             case FlowOperationType.MOVE_ACTION:
-                clonedVersion = moveAction(clonedVersion, operation.request)
+                const step = getSingleStep(clonedVersion, operation.request.name)
+                clonedVersion = flowBuilder
+                    .deleteAction({ name: operation.request.name })
+                    .addAction({
+                        action: step as Action,
+                        parentStep: operation.request.newParentStep,
+                        stepLocationRelativeToParent: operation.request.stepLocationRelativeToNewParent,
+                    })
+                    .build()
                 break
             case FlowOperationType.LOCK_FLOW:
                 clonedVersion = flowBuilder.lockFlow().build()
@@ -552,7 +509,14 @@ export const flowHelper = {
                 clonedVersion = flowBuilder.updateTrigger(operation.request).build()
                 break
             case FlowOperationType.DUPLICATE_ACTION: {
-                clonedVersion = duplicateStep(operation.request.stepName, clonedVersion)
+                const step = getSingleStep(clonedVersion, operation.request.stepName)
+                if(step)step.name = findAvailableStepName(clonedVersion, "step")
+                clonedVersion = flowBuilder
+                    .addAction({
+                        action: step as Action,
+                        parentStep: operation.request.stepName
+                    })
+                    .build()
                 break
             }
             default:
