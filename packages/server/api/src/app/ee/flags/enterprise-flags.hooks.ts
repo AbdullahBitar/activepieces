@@ -1,9 +1,8 @@
-import { ApFlagId, isNil } from '@activepieces/shared'
+import { ApFlagId, ThirdPartyAuthnProviderEnum, isNil } from '@activepieces/shared'
 import { FlagsServiceHooks } from '../../flags/flags.hooks'
 import { apperanceHelper } from '../helper/apperance-helper'
-import { platformService } from '../platform/platform.service'
-import { ThirdPartyAuthnProviderEnum } from '@activepieces/ee-shared'
-import { resolvePlatformIdForRequest } from '../platform/lib/platform-utils'
+import { platformService } from '../../platform/platform.service'
+import { resolvePlatformIdForRequest } from '../../platform/platform-utils'
 import { flagService } from '../../flags/flag.service'
 
 export const enterpriseFlagsHooks: FlagsServiceHooks = {
@@ -50,6 +49,7 @@ export const enterpriseFlagsHooks: FlagsServiceHooks = {
             modifiedFlags[ApFlagId.TERMS_OF_SERVICE_URL] = platform.termsOfServiceUrl
             modifiedFlags[ApFlagId.OWN_AUTH2_ENABLED] = false
             modifiedFlags[ApFlagId.SHOW_PLATFORM_DEMO] = false
+            modifiedFlags[ApFlagId.SHOW_ACTIVITY_LOG] = platform.showActivityLog
         }
         return modifiedFlags
     },

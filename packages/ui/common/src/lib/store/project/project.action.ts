@@ -1,6 +1,10 @@
 import { createAction, props } from '@ngrx/store';
-import { NotificationStatus, Project } from '@activepieces/shared';
-import { Platform } from '@activepieces/ee-shared';
+import {
+  NotificationStatus,
+  Platform,
+  Project,
+  ProjectWithLimits,
+} from '@activepieces/shared';
 
 export enum ProjectActionType {
   CLEAR_PROJECTS = '[PROJECT] CLEAR_PROJECTS',
@@ -8,12 +12,13 @@ export enum ProjectActionType {
   UPDATE_NOTIFY_STATUS = '[PROJECT] UPDATE_NOTIFY_STATUS',
   UPDATE_PROJECT = '[PROJECT] UPDATE_PROJECT',
   ADD_PROJECT = '[PROJECT] ADD_PROJECT',
+  UPDATE_LIMITS = '[PROJECT] UPDATE_LIMITS',
 }
 
 export const setProjects = createAction(
   ProjectActionType.SET_PROJECTS,
   props<{
-    projects: Project[];
+    projects: ProjectWithLimits[];
     selectedIndex: number;
     platform: Platform | undefined;
   }>()
@@ -22,6 +27,11 @@ export const setProjects = createAction(
 export const updateNotifyStatus = createAction(
   ProjectActionType.UPDATE_NOTIFY_STATUS,
   props<{ notifyStatus: NotificationStatus }>()
+);
+
+export const updateLimits = createAction(
+  ProjectActionType.UPDATE_LIMITS,
+  props<{ limits: { tasks: number } }>()
 );
 
 export const clearProjects = createAction(ProjectActionType.CLEAR_PROJECTS);
@@ -37,6 +47,7 @@ export const ProjectActions = {
   setProjects,
   clearProjects,
   updateNotifyStatus,
+  updateLimits,
   addProject,
   updateProject,
 };

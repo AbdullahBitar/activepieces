@@ -1,4 +1,10 @@
-import { FlowTemplate } from '@activepieces/shared';
+import {
+  ApFlagId,
+  FlowTemplate,
+  ProjectMemberRole,
+} from '@activepieces/shared';
+import { AuthenticationService, FlagService } from '../service';
+import { map } from 'rxjs';
 
 export const unexpectedErrorMessage = $localize`An unexpected error occured, please contact support`;
 export const codeGeneratorTooltip = $localize`Write code with assistance from AI`;
@@ -66,4 +72,35 @@ export const jsonEditorOptionsMonaco = {
   language: 'json',
   readOnly: true,
   automaticLayout: true,
+};
+
+export const EMPTY_SPACE_BETWEEN_INPUTS_IN_PIECE_PROPERTIES_FORM = 24 + 'px';
+export const BOTTOM_MARGIN_FOR_DESCRIPTION_IN_PIECE_PROPERTIES_FORM = 18 + 'px';
+
+export const findHomePageRouteForRole = (role: ProjectMemberRole) => {
+  switch (role) {
+    case ProjectMemberRole.ADMIN:
+    case ProjectMemberRole.EDITOR:
+    case ProjectMemberRole.VIEWER:
+      return '/flows';
+    case ProjectMemberRole.EXTERNAL_CUSTOMER:
+      return '/activity';
+  }
+};
+
+export const showPlatformDashboard$ = (
+  authenticationService: AuthenticationService,
+  flagsService: FlagService
+) => {
+  const platformAdmin = authenticationService.isPlatformOwner();
+  return flagsService
+    .isFlagEnabled(ApFlagId.SHOW_PLATFORM_DEMO)
+    .pipe(
+      map(
+        (isDemo) =>
+          (isDemo || platformAdmin) &&
+          authenticationService.currentUser.projectRole !==
+            ProjectMemberRole.EXTERNAL_CUSTOMER
+      )
+    );
 };

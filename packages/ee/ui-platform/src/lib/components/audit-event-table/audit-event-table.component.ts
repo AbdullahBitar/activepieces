@@ -4,7 +4,7 @@ import {
   OnInit,
   ViewChild,
 } from '@angular/core';
-import { BehaviorSubject, Observable, Subject, map } from 'rxjs';
+import { BehaviorSubject, Observable, Subject, map, of } from 'rxjs';
 import { startWith } from 'rxjs';
 import {
   ApPaginatorComponent,
@@ -16,10 +16,10 @@ import { AuditEventService } from '../../service/audit-event-service';
 import {
   ApplicationEvent,
   ApplicationEventName,
-  Platform,
   summarizeApplicationEvent,
 } from '@activepieces/ee-shared';
 import { ActivatedRoute } from '@angular/router';
+import { Platform } from '@activepieces/shared';
 
 @Component({
   selector: 'app-audit-event-table',
@@ -41,12 +41,12 @@ export class AuditEventTableComponent
     'created',
   ];
   platform$?: BehaviorSubject<Platform>;
-  isEnabled$!: Observable<boolean>;
+  isEnabled$: Observable<boolean> = of(false);
   dataSource!: AuditEventDataSource;
   refresh$: Subject<boolean> = new Subject();
   dialogClosed$?: Observable<unknown>;
   featureDisabledTooltip = featureDisabledTooltip;
-
+  upgradeNote = $localize`Monitor and track events happening in your platform to users, flows, folders and connections.`;
   constructor(
     private auditEventService: AuditEventService,
     private activatedRoute: ActivatedRoute
@@ -56,7 +56,6 @@ export class AuditEventTableComponent
   ngOnInit(): void {
     if (this.platform) {
       this.platform$ = new BehaviorSubject(this.platform);
-      console.log(this.platform);
       this.isEnabled$ = this.platform$.pipe(
         map((platform) => platform?.auditLogEnabled && !this.isDemo)
       );

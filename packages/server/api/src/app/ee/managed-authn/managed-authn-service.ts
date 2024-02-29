@@ -6,22 +6,20 @@ import {
     PrincipalType,
     Project,
     ProjectId,
-    ProjectType,
+    ProjectMemberRole,
     User,
 } from '@activepieces/shared'
 import { userService } from '../../user/user-service'
 import {
-    DEFAULT_PLATFORM_PLAN,
-    PlatformId,
-    ProjectMemberRole,
+    DEFAULT_PLATFOR_LIMIT,
     ProjectMemberStatus,
 } from '@activepieces/ee-shared'
-import { platformService } from '../platform/platform.service'
+import { platformService } from '../../platform/platform.service'
 import { projectService } from '../../project/project-service'
 import { projectMemberService } from '../project-members/project-member.service'
 import { accessTokenManager } from '../../authentication/lib/access-token-manager'
 import { externalTokenExtractor } from './lib/external-token-extractor'
-import { plansService } from '../billing/project-plan/project-plan.service'
+import { projectLimitsService } from '../project-plan/project-plan.service'
 
 export const managedAuthnService = {
     async externalToken({
@@ -36,16 +34,21 @@ export const managedAuthnService = {
             id: user.id,
             type: PrincipalType.USER,
             projectId: user.projectId,
-            projectType: ProjectType.PLATFORM_MANAGED,
             platform: {
                 id: externalPrincipal.platformId,
                 role: PlatformRole.MEMBER,
             },
         })
 
+        const projectRole = await projectMemberService.getRole({
+            userId: user.id,
+            projectId: user.projectId,
+        })
+
         return {
             ...user,
             token,
+            projectRole,
         }
     },
 }
@@ -124,15 +127,11 @@ const getOrCreateProject = async ({
         displayName: externalProjectId,
         ownerId: platform.ownerId,
         platformId,
-        type: ProjectType.PLATFORM_MANAGED,
         externalId: externalProjectId,
     })
 
-    await plansService.update({
-        projectId: project.id,
-        subscription: null,
-        planLimits: DEFAULT_PLATFORM_PLAN,
-    })
+    await projectLimitsService.upsert(DEFAULT_PLATFOR_LIMIT, project.id)
+
     return project
 }
 
@@ -148,7 +147,7 @@ type AuthenticateParams = {
 }
 
 type GetOrCreateUserParams = {
-    platformId: PlatformId
+    platformId: string
     externalUserId: string
     externalProjectId: string
     externalEmail: string
@@ -161,6 +160,6 @@ type GetOrCreateUserReturn = Omit<User, 'password'> & {
 }
 
 type GetOrCreateProjectParams = {
-    platformId: PlatformId
+    platformId: string
     externalProjectId: string
 }

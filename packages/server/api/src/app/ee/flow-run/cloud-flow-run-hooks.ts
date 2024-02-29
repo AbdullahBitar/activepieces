@@ -1,8 +1,8 @@
 import { ApEdition } from '@activepieces/shared'
 import { FlowRunHooks } from '../../flows/flow-run/flow-run-hooks'
 import { getEdition } from '../../helper/secret-helper'
-import { tasksLimit } from '../billing/limits/tasks-limit'
-import { projectUsageService } from '../billing/project-usage/project-usage-service'
+import { tasksLimit } from '../project-plan/tasks-limit'
+import { projectUsageService } from '../../project/usage/project-usage-service'
 
 export const platformRunHooks: FlowRunHooks = {
     async onPreStart({ projectId }: { projectId: string }): Promise<void> {
@@ -19,10 +19,10 @@ export const platformRunHooks: FlowRunHooks = {
     }): Promise<void> {
         const edition = getEdition()
         if ([ApEdition.CLOUD, ApEdition.ENTERPRISE].includes(edition)) {
-            await projectUsageService.addTasksConsumed({
+            await projectUsageService.increaseTasks(
                 projectId,
                 tasks,
-            })
+            )
         }
     },
 }

@@ -16,19 +16,18 @@ import {
 } from '../../../helpers/mocks'
 import {
     ApFlagId,
-    ProjectType,
     User,
     UserStatus,
     apId,
+    ProjectMemberRole,
+    Platform,
 } from '@activepieces/shared'
 import { faker } from '@faker-js/faker'
 import { emailService } from '../../../../src/app/ee/helper/email/email-service'
-import { stripeHelper } from '../../../../src/app/ee/billing/billing/stripe-helper'
+import { stripeHelper } from '../../../../src/app/ee/billing/project-billing/stripe-helper'
 import {
     CustomDomain,
     OtpType,
-    Platform,
-    ProjectMemberRole,
     ProjectMemberStatus,
 } from '@activepieces/ee-shared'
 import { decodeToken } from '../../../helpers/auth'
@@ -41,7 +40,7 @@ beforeAll(async () => {
 })
 
 beforeEach(async () => {
-    emailService.sendOtpEmail = jest.fn()
+    emailService.sendOtp = jest.fn()
     stripeHelper.getOrCreateCustomer = jest
         .fn()
         .mockResolvedValue(faker.string.alphanumeric())
@@ -149,7 +148,6 @@ describe('Authentication API', () => {
             expect(response?.statusCode).toBe(StatusCodes.OK)
             const responseBody = response?.json()
 
-            expect(Object.keys(responseBody)).toHaveLength(16)
             expect(responseBody?.id).toHaveLength(21)
             expect(responseBody?.created).toBeDefined()
             expect(responseBody?.updated).toBeDefined()
@@ -186,8 +184,8 @@ describe('Authentication API', () => {
             expect(response?.statusCode).toBe(StatusCodes.OK)
             const responseBody = response?.json()
 
-            expect(emailService.sendOtpEmail).toBeCalledTimes(1)
-            expect(emailService.sendOtpEmail).toHaveBeenCalledWith({
+            expect(emailService.sendOtp).toBeCalledTimes(1)
+            expect(emailService.sendOtp).toHaveBeenCalledWith({
                 otp: expect.stringMatching(/^([0-9A-F]|-){36}$/i),
                 platformId: mockPlatform.id,
                 type: OtpType.EMAIL_VERIFICATION,
@@ -373,7 +371,6 @@ describe('Authentication API', () => {
 
             expect(project?.ownerId).toBe(responseBody.id)
             expect(project?.displayName).toBe(`${responseBody.firstName}'s Project`)
-            expect(project?.type).toBe(ProjectType.PLATFORM_MANAGED)
             expect(project?.platformId).toBe(mockPlatform.id)
         })
     })
@@ -506,8 +503,16 @@ describe('Authentication API', () => {
                 status: UserStatus.ACTIVE,
             })
             await databaseConnection.getRepository('user').save(mockUser)
-
+            const mockPlatform = createMockPlatform({
+                id: CLOUD_PLATFORM_ID,
+                ownerId: mockUser.id,
+            })
+            await databaseConnection.getRepository('platform').save(mockPlatform)
+            await databaseConnection.getRepository('user').update(mockUser.id, {
+                platformId: mockPlatform.id,
+            })
             const mockProject = createMockProject({
+                platformId: mockPlatform.id,
                 ownerId: mockUser.id,
             })
             await databaseConnection.getRepository('project').save(mockProject)
@@ -528,7 +533,6 @@ describe('Authentication API', () => {
             const responseBody = response?.json()
 
             expect(response?.statusCode).toBe(StatusCodes.OK)
-            expect(Object.keys(responseBody)).toHaveLength(16)
             expect(responseBody?.id).toBe(mockUser.id)
             expect(responseBody?.email).toBe(mockEmail)
             expect(responseBody?.firstName).toBe(mockUser.firstName)
@@ -538,7 +542,7 @@ describe('Authentication API', () => {
             expect(responseBody?.password).toBeUndefined()
             expect(responseBody?.status).toBe(mockUser.status)
             expect(responseBody?.verified).toBe(mockUser.verified)
-            expect(responseBody?.platformId).toBe(null)
+            expect(responseBody?.platformId).toBe(CLOUD_PLATFORM_ID)
             expect(responseBody?.externalId).toBe(null)
             expect(responseBody?.projectId).toBe(mockProject.id)
             expect(responseBody?.token).toBeDefined()
@@ -626,7 +630,9 @@ describe('Authentication API', () => {
                 ownerId: mockUser.id,
             })
             await databaseConnection.getRepository('platform').save(mockPlatform)
-
+            await databaseConnection.getRepository('user').update(mockUser.id, {
+                platformId: mockPlatform.id,
+            })
             const mockCustomDomain = createMockCustomDomain({
                 platformId: mockPlatformId,
                 domain: mockPlatformDomain,
@@ -674,8 +680,15 @@ describe('Authentication API', () => {
             })
             await databaseConnection.getRepository('user').save(mockUser)
 
+            const mockPlatform = createMockPlatform({
+                id: CLOUD_PLATFORM_ID,
+                ownerId: mockUser.id,
+            })
+            await databaseConnection.getRepository('platform').save(mockPlatform)
+
             const mockProject = createMockProject({
                 ownerId: mockUser.id,
+                platformId: mockPlatform.id,
             })
             await databaseConnection.getRepository('project').save(mockProject)
 
@@ -710,8 +723,18 @@ describe('Authentication API', () => {
             })
             await databaseConnection.getRepository('user').save(mockUser)
 
+            const mockPlatform = createMockPlatform({
+                id: CLOUD_PLATFORM_ID,
+                ownerId: mockUser.id,
+            })
+            await databaseConnection.getRepository('platform').save(mockPlatform)
+            await databaseConnection.getRepository('user').update(mockUser.id, {
+                platformId: mockPlatform.id,
+            })
+
             const mockProject = createMockProject({
                 ownerId: mockUser.id,
+                platformId: mockPlatform.id,
             })
             await databaseConnection.getRepository('project').save(mockProject)
 

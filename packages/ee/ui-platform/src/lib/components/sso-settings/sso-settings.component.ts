@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
-import { Platform } from '@activepieces/ee-shared';
+import { Platform } from '@activepieces/shared';
 import { fadeInUp400ms } from '@activepieces/ui/common';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { FederatedAuthnProviderEnum } from './federated-authn-provider.enum';
@@ -19,7 +19,7 @@ export class SsoSettingsComponent
   addDomain$?: Observable<string>;
   removeDomain$?: Observable<void>;
   FederatedAuthnProviderEnum = FederatedAuthnProviderEnum;
-
+  upgradeNote = $localize`Enable single sign-on (SSO) for your platform to allow users to sign in using their existing credentials from a third-party identity provider.`;
   ngOnInit(): void {
     if (this.platform) {
       this.platform$ = new BehaviorSubject(this.platform);

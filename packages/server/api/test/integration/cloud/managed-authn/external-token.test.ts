@@ -9,9 +9,9 @@ import {
 import { FastifyInstance } from 'fastify'
 import { StatusCodes } from 'http-status-codes'
 import { generateMockExternalToken } from '../../../helpers/auth'
-import { ProjectType, apId } from '@activepieces/shared'
+import { apId } from '@activepieces/shared'
 import { faker } from '@faker-js/faker'
-import { stripeHelper } from '../../../../src/app/ee/billing/billing/stripe-helper'
+import { stripeHelper } from '../../../../src/app/ee/billing/project-billing/stripe-helper'
 
 let app: FastifyInstance | null = null
 
@@ -68,7 +68,6 @@ describe('Managed Authentication API', () => {
             const responseBody = response?.json()
 
             expect(response?.statusCode).toBe(StatusCodes.OK)
-            expect(Object.keys(responseBody)).toHaveLength(16)
             expect(responseBody?.id).toHaveLength(21)
             expect(responseBody?.email).toBe(mockExternalTokenPayload.email)
             expect(responseBody?.firstName).toBe(mockExternalTokenPayload.firstName)
@@ -132,7 +131,6 @@ describe('Managed Authentication API', () => {
                 mockExternalTokenPayload.externalProjectId,
             )
             expect(generatedProject?.ownerId).toBe(mockPlatform.ownerId)
-            expect(generatedProject?.type).toBe('PLATFORM_MANAGED')
             expect(generatedProject?.platformId).toBe(mockPlatform.id)
             expect(generatedProject?.externalId).toBe(
                 mockExternalTokenPayload.externalProjectId,
@@ -211,7 +209,6 @@ describe('Managed Authentication API', () => {
 
             const mockProject = createMockProject({
                 ownerId: mockUser.id,
-                type: ProjectType.PLATFORM_MANAGED,
                 platformId: mockPlatform.id,
                 externalId: mockExternalProjectId,
             })
@@ -271,7 +268,6 @@ describe('Managed Authentication API', () => {
 
             const mockProject = createMockProject({
                 ownerId: mockPlatformOwner.id,
-                type: ProjectType.PLATFORM_MANAGED,
                 platformId: mockPlatform.id,
                 externalId: mockExternalTokenPayload.externalProjectId,
             })

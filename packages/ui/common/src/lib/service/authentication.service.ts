@@ -5,18 +5,18 @@ import { Router } from '@angular/router';
 import { JwtHelperService } from '@auth0/angular-jwt';
 import {
   AuthenticationResponse,
+  ClaimTokenRequest,
+  FederatedAuthnLoginResponse,
   Principal,
   SignInRequest,
   SignUpRequest,
+  ThirdPartyAuthnProviderEnum,
   User,
 } from '@activepieces/shared';
 import { environment } from '../environments/environment';
 import {
-  ClaimTokenRequest,
   CreateOtpRequestBody,
-  FederatedAuthnLoginResponse,
   ResetPasswordRequestBody,
-  ThirdPartyAuthnProviderEnum,
   VerifyEmailRequestBody,
 } from '@activepieces/ee-shared';
 import { FlagService } from './flag.service';
@@ -27,8 +27,9 @@ type UserWithoutPassword = Omit<User, 'password'>;
   providedIn: 'root',
 })
 export class AuthenticationService {
-  public currentUserSubject: BehaviorSubject<UserWithoutPassword | undefined> =
-    new BehaviorSubject<UserWithoutPassword | undefined>(this.currentUser);
+  public currentUserSubject: BehaviorSubject<
+    AuthenticationResponse | undefined
+  > = new BehaviorSubject<AuthenticationResponse | undefined>(this.currentUser);
   private jwtHelper = new JwtHelperService();
   constructor(
     private router: Router,
@@ -36,7 +37,7 @@ export class AuthenticationService {
     private flagsService: FlagService
   ) {}
 
-  get currentUser(): UserWithoutPassword {
+  get currentUser(): AuthenticationResponse {
     return JSON.parse(
       localStorage.getItem(environment.userPropertyNameInLocalStorage) || '{}'
     );
@@ -74,12 +75,12 @@ export class AuthenticationService {
     localStorage.setItem(environment.jwtTokenName, token);
   }
 
-  saveUser(user: UserWithoutPassword, token: string) {
+  saveUser(user: AuthenticationResponse, token: string) {
     this.saveToken(token);
     this.updateUser(user);
   }
 
-  updateUser(user: UserWithoutPassword) {
+  updateUser(user: AuthenticationResponse) {
     localStorage.setItem(
       environment.userPropertyNameInLocalStorage,
       JSON.stringify(user)

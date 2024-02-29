@@ -19,10 +19,7 @@ import {
 } from 'rxjs';
 import { MatDialog } from '@angular/material/dialog';
 import { InviteProjectMemberDialogComponent } from '../dialogs/invite-project-member-dialog/invite-project-member.component';
-import {
-  ProjectMemberRole,
-  ProjectMemberStatus,
-} from '@activepieces/ee-shared';
+import { ProjectMemberStatus } from '@activepieces/ee-shared';
 import { BillingService, UpgradeDialogData } from '@activepieces/ee-billing-ui';
 import { UpgradeDialogComponent } from '@activepieces/ee-billing-ui';
 import { Store } from '@ngrx/store';
@@ -34,7 +31,7 @@ import {
 } from '@activepieces/ui/common';
 import { RolesDisplayNames } from '../utils';
 import { ActivatedRoute } from '@angular/router';
-import { ApFlagId } from '@activepieces/shared';
+import { ApFlagId, ProjectMemberRole } from '@activepieces/shared';
 
 @Component({
   selector: 'app-project-members-table',
@@ -58,6 +55,7 @@ export class ProjectMembersTableComponent
   displayedColumns = ['email', 'role', 'status', 'created', 'action'];
   title = $localize`Project Members`;
   RolesDisplayNames = RolesDisplayNames;
+  upgradeNote = $localize`Effortlessly invite your teammates to your project and assign them roles, allowing them to view/edit flows or check runs.`;
   StatusDisplayNames: { [k: string]: string } = {
     [ProjectMemberStatus.ACTIVE]: $localize`Active`,
     [ProjectMemberStatus.PENDING]: $localize`Pending`,
@@ -124,19 +122,14 @@ export class ProjectMembersTableComponent
       switchMap((billing) => {
         this.inviteLoading = false;
         if (billing.exceeded) {
-          return this.store.select(ProjectSelectors.selectCurrentProject).pipe(
-            switchMap((proj) => {
-              const data: UpgradeDialogData = {
-                limitType: 'team',
-                limit: billing.limit,
-                projectType: proj.type,
-              };
-              return this.matDialog
-                .open(UpgradeDialogComponent, { data })
-                .afterClosed()
-                .pipe(map(() => void 0));
-            })
-          );
+          const data: UpgradeDialogData = {
+            limitType: 'team',
+            limit: billing.limit,
+          };
+          return this.matDialog
+            .open(UpgradeDialogComponent, { data })
+            .afterClosed()
+            .pipe(map(() => void 0));
         }
 
         return this.matDialog

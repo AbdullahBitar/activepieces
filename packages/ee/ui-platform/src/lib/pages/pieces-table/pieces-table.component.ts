@@ -15,7 +15,7 @@ import {
   PlatformService,
   featureDisabledTooltip,
 } from '@activepieces/ui/common';
-import { Platform } from '@activepieces/ee-shared';
+import { Platform } from '@activepieces/shared';
 import { ActivatedRoute } from '@angular/router';
 import {
   ManagedPieceMetadataModelSummary,
@@ -45,6 +45,7 @@ import { PieceScope } from '@activepieces/shared';
 export class PiecesTableComponent implements OnInit {
   displayedColumns = ['displayName', 'packageName', 'version', 'action'];
   title = $localize`Pieces`;
+  upgradeNote = $localize`Add pieces to your platform, configure them and manage their visibility to users.`;
   saving$?: Observable<void>;
   platform$?: BehaviorSubject<Platform>;
   readonly pieceShownText = $localize`is now available to users`;

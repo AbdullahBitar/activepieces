@@ -1,9 +1,7 @@
 import {
     KeyAlgorithm,
     SigningKey,
-    Platform,
     OAuthApp,
-    FilteredPieceBehavior,
     CustomDomain,
     CustomDomainStatus,
     OtpModel,
@@ -11,7 +9,6 @@ import {
     OtpState,
     ProjectMember,
     ApiKey,
-    ProjectMemberRole,
     ProjectMemberStatus,
     GitRepo,
     ApplicationEvent,
@@ -24,7 +21,7 @@ import {
     apId,
     Project,
     NotificationStatus,
-    ProjectType,
+    ProjectMemberRole,
     PieceType,
     PackageType,
     Flow,
@@ -37,6 +34,8 @@ import {
     FlowRun,
     ExecutionOutputStatus,
     RunEnvironment,
+    Platform,
+    FilteredPieceBehavior,
 } from '@activepieces/shared'
 import { faker } from '@faker-js/faker'
 import { PieceMetadataSchema } from '../../../src/app/pieces/piece-metadata-entity'
@@ -112,7 +111,6 @@ export const createMockProject = (project?: Partial<Project>): Project => {
         displayName: project?.displayName ?? faker.lorem.word(),
         notifyStatus:
       project?.notifyStatus ?? faker.helpers.enumValue(NotificationStatus),
-        type: project?.type ?? faker.helpers.enumValue(ProjectType),
         platformId: project?.platformId ?? apId(),
         externalId: project?.externalId ?? apId(),
     }
@@ -127,6 +125,7 @@ export const createMockGitRepo = (gitRepo?: Partial<GitRepo>): GitRepo => {
         remoteUrl: gitRepo?.remoteUrl ?? `git@${faker.internet.url()}`,
         sshPrivateKey: gitRepo?.sshPrivateKey ?? faker.internet.password(),
         branch: gitRepo?.branch ?? faker.lorem.word(),
+        slug: gitRepo?.slug ?? faker.lorem.word(),
     }
 }
 
@@ -163,6 +162,7 @@ export const createMockPlatform = (platform?: Partial<Platform>): Platform => {
         embeddingEnabled: platform?.embeddingEnabled ?? faker.datatype.boolean(),
         cloudAuthEnabled: platform?.cloudAuthEnabled ?? faker.datatype.boolean(),
         showPoweredBy: platform?.showPoweredBy ?? faker.datatype.boolean(),
+        showActivityLog: platform?.showActivityLog ?? faker.datatype.boolean(),
     }
 }
 

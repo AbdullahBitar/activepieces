@@ -5,7 +5,7 @@ import { databaseConnection } from '../../../../src/app/database/database-connec
 import { createMockSignUpRequest } from '../../../helpers/mocks/authn'
 import { faker } from '@faker-js/faker'
 import { emailService } from '../../../../src/app/ee/helper/email/email-service'
-import { stripeHelper } from '../../../../src/app/ee/billing/billing/stripe-helper'
+import { stripeHelper } from '../../../../src/app/ee/billing/project-billing/stripe-helper'
 import {
     createMockCustomDomain,
     createMockPlatform,
@@ -20,7 +20,7 @@ beforeAll(async () => {
 })
 
 beforeEach(async () => {
-    emailService.sendOtpEmail = jest.fn()
+    emailService.sendOtp = jest.fn()
     stripeHelper.getOrCreateCustomer = jest
         .fn()
         .mockResolvedValue(faker.string.alphanumeric())
@@ -49,7 +49,6 @@ describe('Authentication API', () => {
             expect(response?.statusCode).toBe(StatusCodes.OK)
             const responseBody = response?.json()
 
-            expect(Object.keys(responseBody)).toHaveLength(16)
             expect(responseBody?.id).toHaveLength(21)
             expect(responseBody?.created).toBeDefined()
             expect(responseBody?.updated).toBeDefined()

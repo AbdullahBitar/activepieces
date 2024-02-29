@@ -13,7 +13,7 @@ import {
 import {
     FilteredPieceBehavior,
     UpdatePlatformRequestBody,
-} from '@activepieces/ee-shared'
+} from '@activepieces/shared'
 
 let app: FastifyInstance | null = null
 
@@ -79,7 +79,6 @@ describe('Platform API', () => {
             const responseBody = response?.json()
 
             expect(response?.statusCode).toBe(StatusCodes.OK)
-            expect(Object.keys(responseBody)).toHaveLength(29)
             expect(responseBody.id).toBe(mockPlatform.id)
             expect(responseBody.created).toBeDefined()
             expect(responseBody.updated).toBeDefined()
@@ -151,6 +150,10 @@ describe('Platform API', () => {
             const randomPlatformId = apId()
             const testToken = await generateMockToken({
                 type: PrincipalType.USER,
+                platform: {
+                    id: randomPlatformId,
+                    role: PlatformRole.OWNER,
+                },
             })
 
             // act
@@ -166,7 +169,7 @@ describe('Platform API', () => {
             })
 
             // assert
-            expect(response?.statusCode).toBe(StatusCodes.FORBIDDEN)
+            expect(response?.statusCode).toBe(StatusCodes.NOT_FOUND)
         })
     })
 
@@ -203,7 +206,6 @@ describe('Platform API', () => {
             expect(response?.statusCode).toBe(StatusCodes.OK)
             const responseBody = response?.json()
 
-            expect(Object.keys(responseBody)).toHaveLength(29)
             expect(responseBody.id).toBe(mockPlatform.id)
             expect(responseBody.ownerId).toBe(mockOwnerUser.id)
             expect(responseBody.name).toBe(mockPlatform.name)

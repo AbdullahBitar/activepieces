@@ -2,6 +2,7 @@ import { Component } from '@angular/core';
 import {
   AuthenticationService,
   EmbeddingService,
+  showPlatformDashboard$,
 } from '@activepieces/ui/common';
 import {
   DashboardService,
@@ -26,6 +27,7 @@ export class DashboardContainerComponent {
   currentProject$: Observable<Project>;
   showPoweredByAp$: Observable<boolean>;
   showPlatform$: Observable<boolean>;
+  showAdminConsoleLock$: Observable<boolean>;
   constructor(
     private flagService: FlagService,
     private embeddedService: EmbeddingService,
@@ -33,13 +35,10 @@ export class DashboardContainerComponent {
     private authenticationService: AuthenticationService,
     public router: Router
   ) {
-    this.showPlatform$ = this.flagService
-      .isFlagEnabled(ApFlagId.SHOW_PLATFORM_DEMO)
-      .pipe(
-        map((isDemo) => {
-          return isDemo || this.authenticationService.isPlatformOwner();
-        })
-      );
+    this.showPlatform$ = showPlatformDashboard$(
+      this.authenticationService,
+      this.flagService
+    );
     this.showPoweredByAp$ = combineLatest({
       showPoweredByAp: this.flagService.isFlagEnabled(
         ApFlagId.SHOW_POWERED_BY_AP
@@ -56,6 +55,9 @@ export class DashboardContainerComponent {
       .getState$()
       .pipe(map((state) => !state.hideSideNav));
     this.isInPlatformRoute$ = this.dashboardService.getIsInPlatformRoute();
+    this.showAdminConsoleLock$ = this.flagService.isFlagEnabled(
+      ApFlagId.SHOW_PLATFORM_DEMO
+    );
   }
 
   navigateToAdminConsole() {
